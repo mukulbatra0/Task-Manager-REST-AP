@@ -1,6 +1,28 @@
 # Task Manager REST API
 
-A simple REST API for creating and managing tasks. Data is stored in memory, so it is reset whenever the server restarts.
+A simple REST API for creating and managing tasks. Data is stored in a JSON file locally, or in Upstash Redis when configured (recommended for Vercel deployments).
+
+## Storage backends
+
+| Mode | When used | Persists restarts? |
+| --- | --- | --- |
+| `redis` | `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set | ✅ Yes |
+| `file` | Locally (writes `tasks.json`, override with `DATA_FILE`) | ✅ Yes |
+| `memory` | Read-only filesystem (e.g. Vercel) without Redis | ❌ No |
+
+The app shows a warning banner in the browser when storage is non-persistent. `GET /storage` reports the active backend.
+
+### Persistent storage on Vercel (Upstash Redis)
+
+1. Create a free database at [upstash.com](https://upstash.com) (REST API enabled by default).
+2. Add the environment variables in your Vercel project settings:
+
+```bash
+UPSTASH_REDIS_REST_URL=https://your-db.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-token-here
+```
+
+Data then survives across serverless invocations and cold starts.
 
 ## Requirements
 
@@ -29,6 +51,7 @@ The API is available at `http://localhost:3000`. Set the `PORT` environment vari
 | `POST` | `/tasks` | Create a task |
 | `PUT` | `/tasks/:id` | Update a task |
 | `DELETE` | `/tasks/:id` | Delete a task |
+| `GET` | `/storage` | Report active storage backend |
 
 ### Task fields
 

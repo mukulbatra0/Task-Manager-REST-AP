@@ -7,13 +7,31 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
     <div class="container">
-        <h1>Task Manager</h1>
+        <h1>✨ Task Manager</h1>
+        <p class="subtitle">Stay organized, get things done</p>
+        <div id="storage-warning" class="storage-warning hidden">
+            ⚠️ Storage is temporary — tasks will be lost when the server restarts. Configure a Redis database (e.g. Upstash) for persistent storage.
+        </div>
+
         <form id="task-form">
-            <input type="text" id="title" placeholder="Title" required>
-            <input type="text" id="description" placeholder="Description">
-            <button type="submit">Add Task</button>
+            <input type="text" id="title" placeholder="Enter task title" required maxlength="100">
+            <input type="text" id="description" placeholder="Enter task description (optional)" maxlength="200">
+            <button type="submit" class="btn">Add Task</button>
         </form>
+
+        <div class="filters">
+            <div class="filter-btns">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="active">Active</button>
+                <button class="filter-btn" data-filter="completed">Completed</button>
+            </div>
+            <span class="task-count" id="task-count"></span>
+        </div>
+
         <ul id="task-list"></ul>
     </div>
     <script src="app.js"></script>

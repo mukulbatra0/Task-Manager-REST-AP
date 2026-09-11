@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "vercel --prod"
   },
@@ -15,6 +16,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
   "bugs": {
     "url": "https://github.com/mukulbatra0/Task-Manager-REST-AP/issues"
   },
