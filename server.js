@@ -102,7 +102,7 @@ app.use(express.json());
 
 // ===== Shared validation =====
 // Returns an error message string if invalid, otherwise null.
-function validateTaskFields({ title, description, completed }) {
+function validateTaskFields({ title, description, completed, dueDate, priority }) {
   if (title !== undefined && (typeof title !== 'string' || !title.trim() || title.trim().length > 100)) {
     return 'Title must be a non-empty string of 100 characters or fewer';
   }
@@ -111,6 +111,12 @@ function validateTaskFields({ title, description, completed }) {
   }
   if (completed !== undefined && typeof completed !== 'boolean') {
     return 'Completed must be a boolean';
+  }
+  if (dueDate !== undefined && dueDate !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    return 'Due date must be in YYYY-MM-DD format or an empty string';
+  }
+  if (priority !== undefined && !['low', 'medium', 'high'].includes(priority)) {
+    return 'Priority must be one of: low, medium, high';
   }
   return null;
 }
@@ -157,19 +163,21 @@ app.get('/tasks/:id', (req, res) => {
 
 // POST /tasks - Create a new task
 app.post('/tasks', async (req, res) => {
-  const { title, description, completed } = req.body;
+  const { title, description, completed, dueDate, priority } = req.body;
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Title is required' });
   }
-  const validationError = validateTaskFields({ title, description, completed });
+  const validationError = validateTaskFields({ title, description, completed, dueDate, priority });
   if (validationError) {
     return res.status(400).json({ error: validationError });
   }
   const task = {
     id: nextId++,
-    title: title,
+    title: title.trim(),
     description: description || '',
-    completed: completed ?? false
+    completed: completed ?? false,
+    dueDate: dueDate || '',
+    priority: priority || 'medium'
   };
   tasks.push(task);
   await saveTasks();
@@ -184,14 +192,16 @@ app.put('/tasks/:id', async (req, res) => {
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  const { title, description, completed } = req.body;
-  const validationError = validateTaskFields({ title, description, completed });
+  const { title, description, completed, dueDate, priority } = req.body;
+  const validationError = validateTaskFields({ title, description, completed, dueDate, priority });
   if (validationError) {
     return res.status(400).json({ error: validationError });
   }
   if (title !== undefined) task.title = title.trim();
   if (description !== undefined) task.description = description;
   if (completed !== undefined) task.completed = completed;
+  if (dueDate !== undefined) task.dueDate = dueDate;
+  if (priority !== undefined) task.priority = priority;
   await saveTasks();
   res.json(task);
 });

@@ -3,6 +3,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskList = document.getElementById('task-list');
     const titleInput = document.getElementById('title');
     const descriptionInput = document.getElementById('description');
+    const dueDateInput = document.getElementById('due-date');
+    const priorityInput = document.getElementById('priority');
+
+    // ===== Theme (dark mode) =====
+    const themeToggle = document.getElementById('theme-toggle');
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
+
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+        localStorage.setItem('theme', theme);
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        setTheme(current === 'dark' ? 'light' : 'dark');
+    });
 
     let tasks = [];
     let editingId = null;
@@ -17,19 +36,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.innerHTML;
     }
 
-    // Toast notification
+    // Toast notification (optionally with an action button, e.g. Undo)
     let toastTimeout;
-    function showToast(message, type = '') {
+    function showToast(message, type = '', action = null) {
         let toast = document.querySelector('.toast');
         if (!toast) {
             toast = document.createElement('div');
             toast.className = 'toast';
             document.body.appendChild(toast);
         }
-        toast.textContent = message;
+        toast.innerHTML = '';
+        const text = document.createElement('span');
+        text.textContent = message;
+        toast.appendChild(text);
+        if (action) {
+            const btn = document.createElement('button');
+            btn.className = 'toast-action';
+            btn.textContent = action.label;
+            btn.addEventListener('click', () => {
+                clearTimeout(toastTimeout);
+                toast.classList.remove('show');
+                action.callback();
+            });
+            toast.appendChild(btn);
+        }
         toast.className = `toast show ${type}`;
         clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), action ? 6000 : 2500);
     }
 
     function getFilteredTasks() {
@@ -61,6 +94,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function getDueInfo(dueDate) {
+        if (!dueDate) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = new Date(dueDate + 'T00:00:00');
+        const diffDays = Math.round((due - today) / 86400000);
+        const formatted = due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        if (diffDays < 0) return { label: `⚠️ Overdue · ${formatted}`, cls: 'overdue' };
+        if (diffDays === 0) return { label: `⏰ Due today`, cls: 'due-today' };
+        return { label: `📅 ${formatted}`, cls: '' };
+    }
+
     function renderTasks() {
         taskList.innerHTML = '';
         const visible = getFilteredTasks();
@@ -79,12 +124,19 @@ document.addEventListener('DOMContentLoaded', () => {
         visible.forEach(task => {
             const li = document.createElement('li');
             if (task.completed) li.classList.add('completed');
+            li.classList.add(`priority-${task.priority || 'medium'}`);
+            const due = getDueInfo(task.dueDate);
+            const priority = task.priority || 'medium';
             // Use textContent-based escaping to prevent XSS
             li.innerHTML = `
                 <input type="checkbox" class="task-complete" data-id="${task.id}" ${task.completed ? 'checked' : ''}>
                 <div class="task-content">
                     <span class="task-title">${escapeHtml(task.title)}</span>
-                    <span class="task-description">${escapeHtml(task.description || '')}</span>
+                    ${task.description ? `<span class="task-description">${escapeHtml(task.description)}</span>` : ''}
+                    <span class="task-meta">
+                        <span class="badge badge-priority priority-${priority}">${priority}</span>
+                        ${due ? `<span class="badge badge-due ${due.cls}">${escapeHtml(due.label)}</span>` : ''}
+                    </span>
                 </div>
                 <div class="task-actions">
                     <button class="edit-btn" data-id="${task.id}">Edit</button>
@@ -132,14 +184,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 await api('/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description })
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        dueDate: dueDateInput.value,
+                        priority: priorityInput.value
+                    })
                 });
                 showToast('✅ Task added', 'success');
             } else {
                 await api(`/tasks/${editingId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description })
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        dueDate: dueDateInput.value,
+                        priority: priorityInput.value
+                    })
                 });
                 editingId = null;
                 submitBtn.textContent = 'Add Task';
@@ -164,23 +226,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         titleInput.value = task.title;
         descriptionInput.value = task.description || '';
+        dueDateInput.value = task.dueDate || '';
+        priorityInput.value = task.priority || 'medium';
         editingId = task.id;
         taskForm.querySelector('button[type="submit"]').textContent = 'Update Task';
         titleInput.focus();
     }
 
-    // ===== Delete =====
+    // ===== Delete with undo =====
     async function handleDelete(id) {
-        if (!confirm('Delete this task?')) return;
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
         try {
             await api(`/tasks/${id}`, { method: 'DELETE' });
-            showToast('🗑️ Task deleted', 'success');
+            tasks = tasks.filter(t => t.id !== id);
+            renderTasks();
+            showToast('🗑️ Task deleted', 'success', {
+                label: 'Undo',
+                callback: async () => {
+                    try {
+                        await api('/tasks', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: task.title,
+                                description: task.description,
+                                completed: task.completed,
+                                dueDate: task.dueDate,
+                                priority: task.priority
+                            })
+                        });
+                        await fetchTasks();
+                        showToast('↩️ Task restored', 'success');
+                    } catch (error) {
+                        console.error('Error restoring task:', error);
+                        showToast(error.message, 'error');
+                    }
+                }
+            });
             if (editingId === id) {
                 editingId = null;
                 taskForm.reset();
                 taskForm.querySelector('button[type="submit"]').textContent = 'Add Task';
             }
-            await fetchTasks();
         } catch (error) {
             console.error('Error deleting task:', error);
             showToast(error.message, 'error');
