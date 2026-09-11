@@ -65,7 +65,11 @@ app.delete('/tasks/:id', (req, res) => {
   res.json(deletedTask[0]);
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Start the server locally; Vercel uses the exported app as the handler.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
