@@ -43,6 +43,18 @@ The API is available at `http://localhost:3000`. Set the `PORT` environment vari
 
 When creating a task, `title` is required. `description` defaults to an empty string and `completed` defaults to `false`.
 
+## Frontend
+
+A minimal HTML/CSS/JS frontend is provided in the `public` directory. When the server runs, it serves static files from this directory.
+
+To use the frontend:
+
+1. Start the server with `node server.js`
+2. Open a web browser and navigate to `http://localhost:3000`
+3. You can now create, view, update, and delete tasks through the UI.
+
+The frontend communicates with the API via fetch requests to the same origin, so no CORS configuration is needed.
+
 ## Examples
 
 Create a task:

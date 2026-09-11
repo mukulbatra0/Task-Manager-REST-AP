@@ -5,6 +5,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// Serve static files from public directory
+app.use(express.static('public'));
+
 // In-memory storage for tasks
 let tasks = [];
 let nextId = 1;
